@@ -1,0 +1,185 @@
+/* 添加Bootstrap圖標庫 */
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css");
+
+/* 頁面標題樣式 */
+header h1 {
+    color: #283747;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+header p.lead {
+    color: #7f8c8d;
+}
+
+/* 卡片陰影效果增強 */
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 統計數字卡片動畫 */
+.statistic-card h3 {
+    animation: fadeIn 1s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 表格行懸停效果 */
+#historyTable tbody tr {
+    transition: background-color 0.2s;
+}
+
+#historyTable tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* 按鈕樣式增強 */
+.btn {
+    border-radius: 5px;
+    font-weight: 500;
+}
+
+.btn-primary, .btn-success {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover, .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 表單標籤增強 */
+.form-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* 增強模態框樣式 */
+.modal-content {
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.modal-title {
+    color: #283747;
+    font-weight: bold;
+}
+
+/* 頁腳樣式增強 */
+footer {
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+footer a {
+    transition: color 0.2s;
+}
+
+footer a:hover {
+    color: #17a2b8 !important;
+    text-decoration: none;
+}
+
+.summary-data {
+    font-size: 1.2rem;
+}
+
+.summary-data p {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #eee;
+    padding: 10px 0;
+}
+
+canvas {
+    max-height: 300px;
+}
+
+body {
+    background-color: #f8f9fa;
+}
+
+.statistic-card {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.statistic-card h3 {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #283747;
+}
+
+.statistic-card p {
+    color: #7f8c8d;
+    margin-bottom: 0;
+}
+
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+.table th {
+    background-color: #f1f1f1;
+}
+
+.positive-profit {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.negative-profit {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.blinds-container {
+    margin-bottom: 10px;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+    .statistic-card {
+        margin-bottom: 15px;
+    }
+    
+    .card-header-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .card-header-tabs .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    #historyTable th, #historyTable td {
+        font-size: 0.875rem;
+    }
+    
+    .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+} 

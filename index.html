@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net/* https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://accounts.google.com https://cdn.jsdelivr.net blob: data:;">
+
+    <title>德州撲克限時錦標賽記錄</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Google API 客戶端庫 -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">德州撲克限時錦標賽追蹤器</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">主頁</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">關於限時錦標賽</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/您的用户名/poker-limited-tournament" target="_blank">
+                            <i class="bi bi-github"></i> GitHub
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> <span id="currentUserDisplay">未登入</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="#" id="logoutBtn">登出</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5" id="mainContent">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <header class="text-center mb-5">
+                    <h1>德州撲克限時錦標賽記錄</h1>
+                    <p class="lead">記錄您的撲克限時錦標賽戰績，分析表現並持續進步</p>
+                </header>
+
+                <!-- 限時錦標賽表單 -->
+                <div class="card mb-4 shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">新增限時錦標賽記錄</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="limitedTournamentForm">
+                            <!-- 基本賽事信息 -->
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="tournament-date" class="form-label">賽事日期</label>
+                                        <input type="date" class="form-control" id="tournament-date" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="tournament-venue" class="form-label">場地</label>
+                                        <input type="text" class="form-control" id="tournament-venue"
+                                            list="venueOptions">
+                                        <datalist id="venueOptions">
+                                            <option value="市政華人">
+                                            <option value="Type鈦普">
+                                            <option value="私人牌局">
+                                            <option value="線上賽事">
+                                        </datalist>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="tournament-hours" class="form-label">比賽時長</label>
+                                        <select class="form-select" id="tournament-hours" required>
+                                            <option value="2">2小時</option>
+                                            <option value="2.5">2.5小時</option>
+                                            <option value="3">3小時</option>
+                                            <option value="3.5">3.5小時</option>
+                                            <option value="4">4小時</option>
+                                            <option value="4.5">4.5小時</option>
+                                            <option value="5">5小時</option>
+                                            <option value="6">6小時</option>
+                                            <option value="7">7小時</option>
+                                            <option value="8">8小時</option>
+                                            <option value="9">9小時</option>
+                                            <option value="10">10小時</option>
+                                            <option value="0">其他</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 買入資訊 -->
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="tournament-buyin" class="form-label">買入金額</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" id="tournament-buyin" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="tournament-fee" class="form-label">行政費</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" id="tournament-fee" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="tournament-startingChips" class="form-label">起始籌碼</label>
+                                        <input type="number" class="form-control" id="tournament-startingChips"
+                                            required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 結果記錄 -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="tournament-prize" class="form-label">獲得獎金</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" id="tournament-prize" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="tournament-profit" class="form-label">淨收益</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" id="tournament-profit" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 筆記和心得 -->
+                            <div class="mb-3">
+                                <label for="tournament-notes" class="form-label">比賽筆記與心得</label>
+                                <textarea class="form-control" id="tournament-notes" rows="3"></textarea>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-info" id="quickFillBtn">快速填寫CTP標準賽</button>
+                                <button type="submit" class="btn btn-primary">儲存記錄</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 統計分析卡片 -->
+                <div class="card mb-4 shadow">
+                    <div class="card-header bg-success text-white">
+                        <h4 class="mb-0">限時錦標賽統計</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 text-center mb-3">
+                                <div class="statistic-card">
+                                    <h3 id="totalTournaments">0</h3>
+                                    <p>參賽總數</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-center mb-3">
+                                <div class="statistic-card">
+                                    <h3 id="totalProfit">$0</h3>
+                                    <p>總收益</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-center mb-3">
+                                <div class="statistic-card">
+                                    <h3 id="avgProfit">$0</h3>
+                                    <p>平均收益/場</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-center mb-3">
+                                <div class="statistic-card">
+                                    <h3 id="avgDuration">0小時</h3>
+                                    <p>平均比賽時長</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 圖表分析 -->
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow h-100">
+                            <div class="card-header">
+                                <h5>收益趨勢</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="profitTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow h-100">
+                            <div class="card-header">
+                                <h5>場地表現比較</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="venuePerformanceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow h-100">
+                            <div class="card-header">
+                                <h5>每小時收益</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="hourlyProfitChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow h-100">
+                            <div class="card-header">
+                                <h5>起始籌碼與獎金關係</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="chipsToPrizeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 歷史記錄表格 -->
+                <div class="card shadow">
+                    <div class="card-header bg-secondary text-white">
+                        <h4 class="mb-0">歷史記錄</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="historyTable">
+                                <thead>
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>場地</th>
+                                        <th>買入</th>
+                                        <th>時長</th>
+                                        <th>獎金</th>
+                                        <th>淨收益</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 資料會動態填入 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+
+            <div class="text-center">
+                <p>&copy; 2025 德州撲克限時錦標賽追蹤器. 保留所有權利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="aboutModalLabel">關於德州撲克限時錦標賽</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h4>什麼是限時錦標賽？</h4>
+                    <p>德州撲克限時錦標賽是近年愈來愈受歡迎的撲克比賽形式，最大的特點就是<strong>有限制比賽時間</strong>！</p>
+                    <p>賽程通常在一小時至數小時不等，<strong>最常見的比賽模式為 2 小時</strong>。</p>
+
+                    <h4>限時錦標賽規則</h4>
+                    <p>目前限時錦標賽多為九人桌或七人桌，比賽開始時每位參賽玩家會獲得相同的籌碼（例如：200 BB），中間也會升盲，等到比賽時間截止，就會統計所有玩家的籌碼數量，籌碼最多的玩家即是本場比賽的冠軍！
+                    </p>
+
+                    <h4>限時錦標賽合法性</h4>
+                    <p>2019 年一場於新北市舉辦的<strong>德州撲克限時錦標賽牌局，經法院認證為「競技」而非「賭博」！</strong>等同認可德州撲克限時錦標賽是一項新型態的智力競技運動。</p>
+
+                    <h4>與傳統現金桌的差異</h4>
+                    <ul>
+                        <li><strong>賽制不同：</strong>限時錦標賽是一種定時制比賽，而傳統現金桌則更為自由，玩家可以隨時加入和離開。</li>
+                        <li><strong>盲注規範不同：</strong>在限時錦標賽中，盲注會隨著時間推移不斷升盲，而在傳統現金桌中，盲注通常是固定的。</li>
+                        <li><strong>籌碼控制不同：</strong>在限時錦標賽中，玩家需要更加注重籌碼控制，因為籌碼數量決定玩家的生存能力。</li>
+                        <li><strong>策略和技巧不同：</strong>限時錦標賽和傳統現金桌的玩法策略也有很大的不同。</li>
+                    </ul>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">了解了</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/vendor/bootstrap.bundle.min.js"></script>
+    <script src="js/vendor/chart.js"></script>
+    <script src="js/data-handler.js"></script>
+    <script src="js/sheets-data-handler.js"></script>
+    <script src="js/ui-controller.js"></script>
+    <script src="js/chart-manager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
