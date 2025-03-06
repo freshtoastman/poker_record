@@ -32,50 +32,50 @@ async function initialize() {
             
             const apiInfo = await testResponse.json();
             console.log('SheetDB API 連接成功，資訊:', apiInfo);
+            
+            // 初始化 SheetDB 數據處理器
+            sheetsHandler = new SheetsDataHandler();
+            sheetsHandler.SHEETDB_API_URL = sheetDBApiUrl;
+            console.log('SheetDB 數據處理器初始化完成');
+            
+            // 如果已有使用者，直接載入數據
+            if (currentUser) {
+                console.log('正在登入現有用戶:', currentUser);
+                const loginResult = await sheetsHandler.loginUser(currentUser);
+                if (loginResult.success) {
+                    dataHandler = sheetsHandler;
+                    initializeApp();
+                } else {
+                    console.log('登入失敗:', loginResult.message);
+                    // 登入失敗，顯示登入模態框
+                    await showLoginModal();
+                }
+            } else {
+                // 沒有使用者，顯示登入模態框
+                await showLoginModal();
+            }
         } catch (apiError) {
             console.error('測試 API 連接時出錯:', apiError);
             showError(`連接 SheetDB API 時出錯: ${apiError.message}`);
             showSheetDBSetupModal();
             return;
         }
-        
-        // 初始化 SheetDB 數據處理器
-        sheetsHandler = new SheetsDataHandler();
-        sheetsHandler.SHEETDB_API_URL = sheetDBApiUrl;
-        console.log('SheetDB 數據處理器初始化完成');
-        
-        // 如果已有使用者，直接載入數據
-        if (currentUser) {
-            console.log('正在登入現有用戶:', currentUser);
-            const loginResult = await sheetsHandler.loginUser(currentUser);
-            if (loginResult.success) {
-                dataHandler = sheetsHandler;
-                initializeApp();
-            } else {
-                console.log('登入失敗:', loginResult.message);
-                // 登入失敗，顯示登入模態框
-                showLoginModal();
-            }
-        } else {
-            // 沒有使用者，顯示登入模態框
-            showLoginModal();
-        }
     } catch (error) {
         console.error('初始化 SheetsDataHandler 失敗:', error);
         showError(`初始化數據處理器失敗: ${error.message}`);
-        initializeWithLocalStorage();
+        await initializeWithLocalStorage();
     }
 }
 
 // 使用本地存儲初始化（僅作為備用）
-function initializeWithLocalStorage() {
+async function initializeWithLocalStorage() {
     dataHandler = new LimitedTournamentDataHandler();
     
     if (currentUser) {
         dataHandler.loadUserData(currentUser);
         initializeApp();
     } else {
-        showLoginModal();
+        await showLoginModal();
     }
 }
 
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 登入相關函數
-function showLoginModal() {
+async function showLoginModal() {
     const modalHtml = `
         <div class="modal fade" id="loginModal" data-bs-backdrop="static" tabindex="-1">
             <div class="modal-dialog">
@@ -178,7 +178,7 @@ function showLoginModal() {
                         <div class="mb-3">
                             <label class="form-label">選擇現有玩家</label>
                             <select class="form-select mb-2" id="playerSelect">
-                                <option value="">請選擇...</option>
+                                <option value="">載入中...</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -197,8 +197,31 @@ function showLoginModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+    loginModal.show();
     
-    loadPlayerList();
+    // 確保 SheetDB 數據處理器已初始化
+    if (!sheetsHandler && sheetDBApiUrl) {
+        console.log('正在初始化 SheetDB 數據處理器...');
+        try {
+            const testResponse = await fetch(sheetDBApiUrl);
+            if (testResponse.ok) {
+                const apiInfo = await testResponse.json();
+                console.log('初始化前的 API 信息:', apiInfo);
+                
+                // 初始化 SheetDB 數據處理器
+                sheetsHandler = new SheetsDataHandler();
+                sheetsHandler.SHEETDB_API_URL = sheetDBApiUrl;
+                console.log('SheetDB 數據處理器初始化完成，URL:', sheetsHandler.SHEETDB_API_URL);
+            } else {
+                console.warn('無法連接到 SheetDB API，將使用本地存儲:', await testResponse.text());
+            }
+        } catch (apiError) {
+            console.warn('測試 API 連接時出錯，將使用本地存儲:', apiError);
+        }
+    }
+    
+    // 加載玩家列表
+    await loadPlayerList();
     
     document.getElementById('loginButton').addEventListener('click', async function() {
         const selectedPlayer = document.getElementById('playerSelect').value;
@@ -208,13 +231,20 @@ function showLoginModal() {
         
         if (selectedPlayer) {
             // 登入現有用戶
-            result = await sheetsHandler.loginUser(selectedPlayer);
-            if (result.success) {
-                login(selectedPlayer);
-                dataHandler = sheetsHandler;
+            if (sheetsHandler) {
+                result = await sheetsHandler.loginUser(selectedPlayer);
+                if (result.success) {
+                    login(selectedPlayer);
+                    dataHandler = sheetsHandler;
+                } else {
+                    alert(result.message);
+                    return;
+                }
             } else {
-                alert(result.message);
-                return;
+                // 使用本地存儲登入
+                login(selectedPlayer);
+                dataHandler = new LimitedTournamentDataHandler();
+                dataHandler.loadUserData(selectedPlayer);
             }
         } else if (newPlayer) {
             // 創建新用戶
@@ -223,13 +253,20 @@ function showLoginModal() {
                 return;
             }
             
-            result = await sheetsHandler.createUser(newPlayer);
-            if (result.success) {
-                login(newPlayer);
-                dataHandler = sheetsHandler;
+            if (sheetsHandler) {
+                result = await sheetsHandler.createUser(newPlayer);
+                if (result.success) {
+                    login(newPlayer);
+                    dataHandler = sheetsHandler;
+                } else {
+                    alert(result.message);
+                    return;
+                }
             } else {
-                alert(result.message);
-                return;
+                // 使用本地存儲創建用戶
+                login(newPlayer);
+                dataHandler = new LimitedTournamentDataHandler();
+                dataHandler.loadUserData(newPlayer);
             }
         } else {
             alert('請選擇現有玩家或輸入新玩家名稱');
@@ -239,8 +276,6 @@ function showLoginModal() {
         loginModal.hide();
         initializeApp();
     });
-    
-    loginModal.show();
 }
 
 async function loadPlayerList() {
@@ -248,28 +283,79 @@ async function loadPlayerList() {
         const playerSelect = document.getElementById('playerSelect');
         playerSelect.innerHTML = '<option value="">請選擇...</option>';
         
-        if (sheetDBApiUrl) {
-            // 從 SheetDB 獲取用戶列表
-            const response = await fetch(`${sheetDBApiUrl}/search?sheet=Users`);
-            if (response.ok) {
-                const data = await response.json();
+        let foundPlayers = false;
+        
+        // 嘗試從 SheetDB 獲取用戶列表
+        if (sheetsHandler && sheetsHandler.SHEETDB_API_URL) {
+            console.log('正在從 SheetDB 獲取用戶列表...', sheetsHandler.SHEETDB_API_URL);
+            try {
+                // 首先嘗試直接從 API 根端點獲取數據
+                let response = await fetch(sheetsHandler.SHEETDB_API_URL);
                 
-                // 添加用戶到下拉選單
-                data.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.username;
-                    option.textContent = user.username;
-                    playerSelect.appendChild(option);
-                });
-            } else {
-                console.error('從 SheetDB 載入用戶列表失敗');
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('從 API 根端點獲取到數據:', data);
+                    
+                    // 過濾有效用戶並添加到下拉選單
+                    if (Array.isArray(data) && data.length > 0) {
+                        const validUsers = data.filter(user => user && user.username);
+                        
+                        validUsers.forEach(user => {
+                            const option = document.createElement('option');
+                            option.value = user.username;
+                            option.textContent = user.username;
+                            playerSelect.appendChild(option);
+                        });
+                        
+                        if (validUsers.length > 0) {
+                            foundPlayers = true;
+                            console.log(`找到 ${validUsers.length} 個用戶`);
+                            return; // 已找到用戶，不需要再嘗試其他方法
+                        }
+                    }
+                    
+                    console.log('從 API 根端點未找到有效用戶，嘗試使用 search 路徑');
+                }
+                
+                // 如果從根端點沒有獲取到用戶，嘗試 search 路徑
+                response = await fetch(`${sheetsHandler.SHEETDB_API_URL}/search?sheet=Users`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('從 search 路徑獲取到用戶列表:', data);
+                    
+                    // 添加用戶到下拉選單
+                    const validUsers = data.filter(user => user && user.username);
+                    
+                    validUsers.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.username;
+                        option.textContent = user.username;
+                        playerSelect.appendChild(option);
+                    });
+                    
+                    if (validUsers.length > 0) {
+                        foundPlayers = true;
+                        console.log(`找到 ${validUsers.length} 個用戶`);
+                    } else {
+                        console.log('SheetDB 中沒有找到用戶');
+                    }
+                } else {
+                    console.error('從 SheetDB 載入用戶列表失敗:', await response.text());
+                }
+            } catch (error) {
+                console.error('從 SheetDB 獲取用戶時出錯:', error);
             }
-        } else {
-            // 從本地存儲獲取用戶列表
+        }
+        
+        // 如果從 SheetDB 沒有獲取到用戶，嘗試從本地存儲獲取
+        if (!foundPlayers) {
+            console.log('從本地存儲獲取用戶列表...');
             const storageKeys = Object.keys(localStorage);
             const usernames = storageKeys
                 .filter(key => key.startsWith('tournaments_'))
                 .map(key => key.replace('tournaments_', ''));
+            
+            console.log('從本地存儲找到的用戶:', usernames);
                 
             usernames.forEach(username => {
                 const option = document.createElement('option');
@@ -277,6 +363,20 @@ async function loadPlayerList() {
                 option.textContent = username;
                 playerSelect.appendChild(option);
             });
+            
+            if (usernames.length > 0) {
+                foundPlayers = true;
+            }
+        }
+        
+        // 如果沒有找到任何用戶，添加一個提示
+        if (!foundPlayers && playerSelect.options.length <= 1) {
+            console.log('沒有找到任何用戶');
+            const option = document.createElement('option');
+            option.value = "";
+            option.textContent = "-- 未找到玩家，請創建新玩家 --";
+            option.disabled = true;
+            playerSelect.appendChild(option);
         }
     } catch (error) {
         console.error('載入玩家列表失敗:', error);
@@ -391,13 +491,13 @@ async function testSheetDBApi() {
                 },
                 body: JSON.stringify({
                     name: 'Users',
-                    first_row: ["username"]
+                    first_row: ["username", "tournaments"]
                 })
             });
             
             if (!createResponse.ok) {
                 apiTestResult.className = 'alert alert-warning';
-                apiTestResult.innerHTML = `連接成功，但無法創建 Users 工作表。您可能需要手動在 Google Sheets 中創建一個名為 "Users" 的工作表，並在第一行添加 "username" 列標題。`;
+                apiTestResult.innerHTML = `連接成功，但無法創建 Users 工作表。您可能需要手動在 Google Sheets 中創建一個名為 "Users" 的工作表，並在第一行添加 "username" 和 "tournaments" 列標題。`;
                 return;
             }
             
