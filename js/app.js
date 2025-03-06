@@ -6,7 +6,7 @@ let currentUser = localStorage.getItem('currentUser');
 let sheetsHandler;
 let isInitialized = false;
 let useSheetDB = true; // 強制使用 SheetDB
-let sheetDBApiUrl = localStorage.getItem('sheetDBApiUrl') || 'https://sheetdb.io/api/v1/vdz7p5djj0n9g'; // 預設 SheetDB API URL
+let sheetDBApiUrl = localStorage.getItem('sheetDBApiUrl') || 'https://sheetdb.io/api/v1/ybxsbl10xn7az'; // 預設 SheetDB API URL
 
 // 初始化應用程序
 async function initialize() {
@@ -131,6 +131,124 @@ function initializeApp() {
     isInitialized = true;
 }
 
+/**
+ * 檢測設備類型和屏幕尺寸，動態調整 UI
+ */
+function detectDevice() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    document.body.classList.toggle('mobile-device', isMobile);
+    
+    return { isMobile };
+}
+
+/**
+ * 優化移動端觸控體驗
+ */
+function enhanceMobileExperience() {
+    const { isMobile } = detectDevice();
+    
+    if (!isMobile) return;
+    
+    // 優化表格顯示
+    const historyTable = document.getElementById('history-table');
+    if (historyTable) {
+        // 為每個表格行添加點擊事件，顯示詳細資訊
+        const tableBody = document.getElementById('history-table-body');
+        tableBody.addEventListener('click', function(e) {
+            // 尋找最近的 tr 父元素
+            const row = e.target.closest('tr');
+            if (row && row.dataset.id) {
+                // 避免點擊操作按鈕時觸發
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                    return;
+                }
+                
+                // 載入該記錄的數據
+                uiController.loadTournamentForEditing(row.dataset.id);
+                
+                // 滾動到表單區域
+                document.querySelector('#tournament-form').scrollIntoView({behavior: 'smooth'});
+            }
+        });
+    }
+    
+    // 點擊摘要卡片時展開/收起詳細資訊
+    const summaryCard = document.querySelector('.card-header.bg-success');
+    if (summaryCard) {
+        summaryCard.addEventListener('click', function() {
+            const cardBody = this.nextElementSibling;
+            if (cardBody) {
+                cardBody.classList.toggle('d-none');
+            }
+        });
+    }
+    
+    // 增強輸入體驗
+    document.querySelectorAll('input, select').forEach(input => {
+        // 輸入完成後自動收起鍵盤
+        input.addEventListener('blur', function() {
+            setTimeout(() => {
+                if (document.activeElement.tagName !== 'INPUT' && 
+                    document.activeElement.tagName !== 'SELECT' && 
+                    document.activeElement.tagName !== 'TEXTAREA') {
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                }
+            }, 100);
+        });
+    });
+    
+    // 表單提交時防止雙重點擊
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function(e) {
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 儲存中...';
+            
+            // 處理表單提交
+            uiController.saveTournament();
+            
+            // 延遲恢復按鈕狀態
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = '儲存紀錄';
+            }, 1000);
+        });
+    }
+    
+    // 處理表單提交事件
+    const tournamentForm = document.getElementById('tournament-form');
+    if (tournamentForm) {
+        tournamentForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // 防止表單默認提交行為
+            
+            // 在表單提交時收起鍵盤
+            document.activeElement.blur();
+            
+            // 顯示提交中狀態
+            const saveBtn = document.getElementById('saveBtn');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 儲存中...';
+            }
+            
+            // 延遲處理提交，確保UI有足夠時間更新
+            setTimeout(() => {
+                if (uiController) {
+                    uiController.saveTournament();
+                }
+                
+                // 恢復按鈕狀態
+                if (saveBtn) {
+                    setTimeout(() => {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = '儲存紀錄';
+                    }, 500);
+                }
+            }, 100);
+        });
+    }
+}
+
 // 修改 DOMContentLoaded 事件
 document.addEventListener('DOMContentLoaded', function() {
     // 隱藏主頁內容，直到登入成功
@@ -160,6 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.getElementById('useSheetdbSwitch').checked = true; // 固定為啟用
     document.getElementById('useSheetdbSwitch').disabled = true; // 禁用切換
+    
+    // 優化移動端體驗
+    enhanceMobileExperience();
+    
+    // 監聽屏幕尺寸變化，調整 UI
+    window.addEventListener('resize', detectDevice);
     
     // 加載 API URL 設置 (初始化時應用)
     initialize();
@@ -397,7 +521,7 @@ function formatCurrency(amount) {
  * 保存 SheetDB 設置
  */
 function saveSheetDBSettings() {
-    const apiUrl = document.getElementById('sheetdbApiUrl').value.trim() || 'https://sheetdb.io/api/v1/vdz7p5djj0n9g';
+    const apiUrl = document.getElementById('sheetdbApiUrl').value.trim() || 'https://sheetdb.io/api/v1/ybxsbl10xn7az';
     
     // 驗證 API URL
     if (!apiUrl || !apiUrl.startsWith('https://sheetdb.io/api/v1/')) {
@@ -635,3 +759,149 @@ function showToast(message, type = 'info') {
     
     return toast;
 }
+
+/**
+ * 優化顯示簡潔版的歷史記錄（針對移動端）
+ */
+function optimizeHistoryTableForMobile() {
+    try {
+        const { isMobile } = detectDevice();
+        
+        if (!isMobile) return;
+        
+        const table = document.getElementById('history-table');
+        if (!table) {
+            console.log('找不到歷史表格，跳過移動端優化');
+            return;
+        }
+        
+        const headers = table.querySelectorAll('th');
+        if (!headers || headers.length === 0) {
+            console.log('找不到表格標題，跳過移動端優化');
+            return;
+        }
+        
+        const rows = table.querySelectorAll('tbody tr');
+        
+        // 智能決定要隱藏哪些列
+        // 1. 獲取當前表格有多少列
+        const columnCount = headers.length;
+        console.log(`歷史表格有 ${columnCount} 列`);
+        
+        // 2. 如果列數少，則不隱藏
+        if (columnCount <= 4) {
+            console.log('表格列數太少，不進行隱藏');
+            return;
+        }
+        
+        // 3. 只隱藏非關鍵列
+        // 在當前結構中 (日期、名稱、買入、獎金、盈虧、操作)
+        // 最重要的是：名稱、盈虧、操作
+        // 其次是：日期、獎金
+        // 最後是：買入
+        const hiddenColumnIndexes = [];
+        
+        // 買入列通常是索引2
+        if (columnCount > 4 && headers.length > 2) {
+            hiddenColumnIndexes.push(2); // 買入列
+        }
+        
+        console.log(`將隱藏以下列索引: ${hiddenColumnIndexes.join(', ')}`);
+        
+        // 確保索引在有效範圍內
+        hiddenColumnIndexes.forEach(index => {
+            if (index >= 0 && index < headers.length) {
+                headers[index].classList.add('d-none', 'd-md-table-cell');
+                
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells && cells.length > index && cells[index]) {
+                        cells[index].classList.add('d-none', 'd-md-table-cell');
+                    }
+                });
+            } else {
+                console.warn(`列索引 ${index} 超出範圍，不進行隱藏`);
+            }
+        });
+        
+        console.log('歷史表格移動端優化完成');
+    } catch (error) {
+        console.error('優化歷史表格時出錯:', error);
+    }
+}
+
+/**
+ * 格式化移動端顯示的數字，使其更簡潔
+ */
+function formatNumberForMobile(number, currency = false) {
+    const { isMobile } = detectDevice();
+    
+    if (!isMobile) {
+        return currency ? formatCurrency(number) : number.toString();
+    }
+    
+    // 簡化數字顯示
+    if (number >= 1000) {
+        return currency ? '$' + (number / 1000).toFixed(1) + 'k' : (number / 1000).toFixed(1) + 'k';
+    }
+    
+    return currency ? formatCurrency(number) : number.toString();
+}
+
+// 擴展 UIController 的 updateHistoryTable 方法
+if (typeof UIController !== 'undefined') {
+    const originalUpdateHistoryTable = UIController.prototype.updateHistoryTable;
+    
+    UIController.prototype.updateHistoryTable = function() {
+        originalUpdateHistoryTable.call(this);
+        optimizeHistoryTableForMobile();
+    };
+}
+
+/**
+ * 在移動端添加下拉刷新功能
+ */
+function setupPullToRefresh() {
+    const { isMobile } = detectDevice();
+    
+    if (!isMobile) return;
+    
+    let touchstartY = 0;
+    let touchendY = 0;
+    const minSwipeDistance = 100;
+    
+    document.addEventListener('touchstart', e => {
+        touchstartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    
+    document.addEventListener('touchend', e => {
+        touchendY = e.changedTouches[0].screenY;
+        handleSwipeGesture();
+    }, { passive: true });
+    
+    function handleSwipeGesture() {
+        if (touchendY - touchstartY > minSwipeDistance && window.scrollY <= 10) {
+            // 下拉刷新
+            showToast('正在刷新數據...', 'info');
+            
+            // 重新載入數據
+            if (uiController) {
+                uiController.updateSummary();
+                uiController.updateHistoryTable();
+                if (chartManager) {
+                    chartManager.updateAllCharts();
+                }
+                
+                showToast('數據已更新', 'success');
+            }
+        }
+    }
+}
+
+// 在初始化完成後設置下拉刷新
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    
+    // 設置下拉刷新
+    setupPullToRefresh();
+});

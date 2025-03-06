@@ -1,60 +1,95 @@
+/**
+ * 圖表管理器類
+ */
 class ChartManager {
+    /**
+     * 構造函數
+     * @param {Object} dataHandler - 數據處理器實例
+     */
     constructor(dataHandler) {
         this.dataHandler = dataHandler;
-        this.charts = {
-            profitTrend: null,
-            venuePerformance: null,
-            hourlyProfit: null
-        };
+        this.charts = {};
     }
     
+    /**
+     * 初始化所有圖表
+     */
     initCharts() {
         try {
-            this.initProfitTrendChart();
+            this.initBalanceChart();
+            console.log('餘額圖表初始化成功');
         } catch (error) {
-            console.error('初始化收益趨勢圖表失敗:', error);
+            console.error('初始化餘額圖表失敗:', error);
         }
         
         try {
-            this.initVenuePerformanceChart();
+            this.initRoiChart();
+            console.log('ROI 圖表初始化成功');
         } catch (error) {
-            console.error('初始化場地表現比較圖表失敗:', error);
+            console.error('初始化 ROI 圖表失敗:', error);
         }
-        
-        try {
-            this.initHourlyProfitChart();
-        } catch (error) {
-            console.error('初始化每小時收益圖表失敗:', error);
-        }
-        
-        // 監聽數據變化，自動更新圖表
-        this.dataHandler.onDataChange(() => {
-            this.updateAllCharts();
-        });
     }
     
-    // 初始化收益趨勢圖表
-    initProfitTrendChart() {
-        const ctx = document.getElementById('profitTrendChart').getContext('2d');
-        this.charts.profitTrend = new Chart(ctx, {
+    /**
+     * 初始化餘額圖表
+     */
+    initBalanceChart() {
+        const canvas = document.getElementById('balance-chart');
+        if (!canvas) {
+            console.warn('找不到 balance-chart 元素，跳過初始化');
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        // 獲取歷史數據
+        const tournaments = this.dataHandler.getAllTournaments();
+        
+        // 準備數據
+        const sortedData = this.getSortedDataByDate(tournaments);
+        
+        // 計算累計盈虧
+        let cumulativeProfit = 0;
+        const profitData = sortedData.tournaments.map(tournament => {
+            const profit = tournament.prizeAmount - (tournament.buyinAmount + (tournament.addonAmount || 0));
+            cumulativeProfit += profit;
+            return cumulativeProfit;
+        });
+        
+        // 創建圖表
+        this.charts.balance = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: [],
+                labels: sortedData.labels,
                 datasets: [{
-                    label: '累計收益',
-                    data: [],
-                    borderColor: 'rgb(75, 192, 192)',
+                    label: '累計盈虧',
+                    data: profitData,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
                     tension: 0.1
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '餘額: $' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: '收益 ($)'
+                        beginAtZero: false,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value;
+                            }
                         }
                     }
                 }
@@ -62,27 +97,66 @@ class ChartManager {
         });
     }
     
-    // 初始化場地表現比較圖表
-    initVenuePerformanceChart() {
-        const ctx = document.getElementById('venuePerformanceChart').getContext('2d');
-        this.charts.venuePerformance = new Chart(ctx, {
+    /**
+     * 初始化 ROI 圖表
+     */
+    initRoiChart() {
+        const canvas = document.getElementById('roi-chart-canvas');
+        if (!canvas) {
+            console.warn('找不到 roi-chart-canvas 元素，跳過初始化');
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        // 獲取統計數據
+        const stats = this.dataHandler.getStatistics();
+        
+        // 獲取近期各場次數據
+        const tournaments = this.dataHandler.getAllTournaments();
+        
+        // 按日期排序
+        const sortedData = this.getSortedDataByDate(tournaments);
+        
+        // 計算每場 ROI
+        const roiData = sortedData.tournaments.map(tournament => {
+            const investment = tournament.buyinAmount + (tournament.addonAmount || 0);
+            if (investment <= 0) return 0;
+            const profit = tournament.prizeAmount - investment;
+            return (profit / investment) * 100;
+        });
+        
+        // 創建圖表
+        this.charts.roi = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: [],
+                labels: sortedData.labels,
                 datasets: [{
-                    label: '平均收益/場',
-                    data: [],
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                    label: '場次 ROI (%)',
+                    data: roiData,
+                    backgroundColor: roiData.map(roi => roi >= 0 ? 'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)'),
+                    borderColor: roiData.map(roi => roi >= 0 ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)'),
+                    borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'ROI: ' + context.parsed.y.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: '平均收益 ($)'
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
                         }
                     }
                 }
@@ -90,94 +164,107 @@ class ChartManager {
         });
     }
     
-    // 初始化每小時收益圖表
-    initHourlyProfitChart() {
-        const hourlyProfitElement = document.getElementById('hourlyProfitChart');
-        if (!hourlyProfitElement) {
-            console.warn('找不到 hourlyProfitChart 元素，跳過初始化');
-            return;
-        }
-        const ctx = hourlyProfitElement.getContext('2d');
-        this.charts.hourlyProfit = new Chart(ctx, {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: '每小時收益',
-                    data: [],
-                    backgroundColor: 'rgba(255, 99, 132, 0.5)'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: '比賽時長 (小時)'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: '每小時收益 ($)'
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
-    // 更新收益趨勢圖表
-    updateProfitTrendChart() {
-        if (!this.charts.profitTrend) {
-            console.warn('profitTrend 圖表未初始化，跳過更新');
-            return;
+    /**
+     * 更新所有圖表
+     */
+    updateAllCharts() {
+        try {
+            this.updateBalanceChart();
+        } catch (error) {
+            console.error('更新餘額圖表失敗:', error);
         }
         
-        const trendData = this.dataHandler.getTrendData();
-        
-        this.charts.profitTrend.data.labels = trendData.map(d => d.date);
-        this.charts.profitTrend.data.datasets[0].data = trendData.map(d => d.cumulativeProfit);
-        this.charts.profitTrend.update();
-    }
-    
-    // 更新場地表現比較圖表
-    updateVenuePerformanceChart() {
-        if (!this.charts.venuePerformance) {
-            console.warn('venuePerformance 圖表未初始化，跳過更新');
-            return;
+        try {
+            this.updateRoiChart();
+        } catch (error) {
+            console.error('更新 ROI 圖表失敗:', error);
         }
-        
-        const stats = this.dataHandler.getStatistics();
-        const venues = Object.keys(stats.profitByVenue);
-        
-        this.charts.venuePerformance.data.labels = venues;
-        this.charts.venuePerformance.data.datasets[0].data = 
-            venues.map(v => stats.profitByVenue[v].avgProfit);
-        this.charts.venuePerformance.update();
     }
     
-    // 更新每小時收益圖表
-    updateHourlyProfitChart() {
-        if (!this.charts.hourlyProfit) {
-            console.warn('hourlyProfit 圖表未初始化，跳過更新');
+    /**
+     * 更新餘額圖表
+     */
+    updateBalanceChart() {
+        if (!this.charts.balance) {
+            this.initBalanceChart();
             return;
         }
         
         const tournaments = this.dataHandler.getAllTournaments();
-        const hourlyProfitData = tournaments.map(t => ({
-            x: t.hours,
-            y: t.netProfit / t.hours
-        }));
         
-        this.charts.hourlyProfit.data.datasets[0].data = hourlyProfitData;
-        this.charts.hourlyProfit.update();
+        // 準備數據
+        const sortedData = this.getSortedDataByDate(tournaments);
+        
+        // 計算累計盈虧
+        let cumulativeProfit = 0;
+        const profitData = sortedData.tournaments.map(tournament => {
+            const profit = tournament.prizeAmount - (tournament.buyinAmount + (tournament.addonAmount || 0));
+            cumulativeProfit += profit;
+            return cumulativeProfit;
+        });
+        
+        // 更新圖表
+        this.charts.balance.data.labels = sortedData.labels;
+        this.charts.balance.data.datasets[0].data = profitData;
+        this.charts.balance.update();
     }
     
-    // 更新所有圖表
-    updateAllCharts() {
-        this.updateProfitTrendChart();
-        this.updateVenuePerformanceChart();
-        this.updateHourlyProfitChart();
+    /**
+     * 更新 ROI 圖表
+     */
+    updateRoiChart() {
+        if (!this.charts.roi) {
+            this.initRoiChart();
+            return;
+        }
+        
+        const tournaments = this.dataHandler.getAllTournaments();
+        
+        // 準備數據
+        const sortedData = this.getSortedDataByDate(tournaments);
+        
+        // 計算每場 ROI
+        const roiData = sortedData.tournaments.map(tournament => {
+            const investment = tournament.buyinAmount + (tournament.addonAmount || 0);
+            if (investment <= 0) return 0;
+            const profit = tournament.prizeAmount - investment;
+            return (profit / investment) * 100;
+        });
+        
+        // 更新圖表
+        this.charts.roi.data.labels = sortedData.labels;
+        this.charts.roi.data.datasets[0].data = roiData;
+        this.charts.roi.data.datasets[0].backgroundColor = roiData.map(roi => roi >= 0 ? 'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)');
+        this.charts.roi.data.datasets[0].borderColor = roiData.map(roi => roi >= 0 ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)');
+        this.charts.roi.update();
+    }
+    
+    /**
+     * 獲取按日期排序的數據
+     * @param {Array} tournaments - 錦標賽數據
+     * @returns {Object} 排序後的數據和標籤
+     */
+    getSortedDataByDate(tournaments) {
+        if (!tournaments || tournaments.length === 0) {
+            return {
+                tournaments: [],
+                labels: []
+            };
+        }
+        
+        // 按日期排序
+        const sortedTournaments = [...tournaments].sort((a, b) => {
+            return new Date(a.date) - new Date(b.date);
+        });
+        
+        // 創建標籤
+        const labels = sortedTournaments.map(tournament => {
+            return tournament.date;
+        });
+        
+        return {
+            tournaments: sortedTournaments,
+            labels: labels
+        };
     }
 } 
