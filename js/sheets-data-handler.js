@@ -26,6 +26,9 @@ class SheetsDataHandler {
         
         // 註冊回調函數
         this.dataChangeCallbacks = [];
+
+        // 如果您的代碼中有檢查域名的邏輯，確保它接受 GitHub Pages 域名
+        this.allowedOrigins = ['localhost', '127.0.0.1', 'freshtoastman.github.io'];
     }
     
     /**
