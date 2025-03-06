@@ -1,67 +1,74 @@
 // 全局變量
 let chartManager;
 let uiController;
-let dataHandler; // 這個變數可以是本地存儲實例或 Google Sheets 實例
+let dataHandler; // 這個變數可以是本地存儲實例或 SheetDB 實例
 let currentUser = localStorage.getItem('currentUser');
 let sheetsHandler;
 let isInitialized = false;
-let useGoogleSheets = false; // 控制是否使用 Google Sheets
+let useSheetDB = true; // 強制使用 SheetDB
+let sheetDBApiUrl = localStorage.getItem('sheetDBApiUrl') || 'https://sheetdb.io/api/v1/vdz7p5djj0n9g'; // 預設 SheetDB API URL
 
-// 初始化 Google API 和應用程序
+// 初始化應用程序
 async function initialize() {
-    // 嘗試初始化 Google Sheets
     try {
-        sheetsHandler = new SheetsDataHandler();
-        
-        // 檢查是否配置了 Google Sheets API
-        if (sheetsHandler.API_KEY === 'YOUR_API_KEY' || 
-            sheetsHandler.CLIENT_ID === 'YOUR_CLIENT_ID' || 
-            sheetsHandler.SPREADSHEET_ID === 'YOUR_SPREADSHEET_ID') {
-            
-            console.log('未配置 Google Sheets API，將使用本地存儲');
-            initializeWithLocalStorage();
+        // 確認 SheetDB API URL 是否有效
+        if (!sheetDBApiUrl || !sheetDBApiUrl.startsWith('https://sheetdb.io/api/v1/')) {
+            console.error('SheetDB API URL 無效，顯示設置模態框');
+            showSheetDBSetupModal();
             return;
         }
         
-        // 嘗試初始化 Google Sheets API
+        console.log('開始連接 SheetDB API:', sheetDBApiUrl);
+        
+        // 測試 API 連接
         try {
-            const isSignedIn = await sheetsHandler.initSheetsAPI();
-            useGoogleSheets = true;
-            
-            if (!isSignedIn) {
-                // 如果未登入 Google 賬戶，顯示登入按鈕
-                showSignInPrompt();
+            const testResponse = await fetch(sheetDBApiUrl);
+            if (!testResponse.ok) {
+                console.error('無法連接到 SheetDB API，錯誤:', await testResponse.text());
+                showError(`無法連接到 SheetDB API (${testResponse.status})。請檢查您的 API URL 是否正確。`);
+                showSheetDBSetupModal();
                 return;
             }
             
-            // 如果已有使用者，直接載入數據
-            if (currentUser) {
-                const loginResult = await sheetsHandler.loginUser(currentUser);
-                if (loginResult.success) {
-                    dataHandler = sheetsHandler;
-                    initializeApp();
-                } else {
-                    // 登入失敗，顯示登入模態框
-                    showLoginModal();
-                }
+            const apiInfo = await testResponse.json();
+            console.log('SheetDB API 連接成功，資訊:', apiInfo);
+        } catch (apiError) {
+            console.error('測試 API 連接時出錯:', apiError);
+            showError(`連接 SheetDB API 時出錯: ${apiError.message}`);
+            showSheetDBSetupModal();
+            return;
+        }
+        
+        // 初始化 SheetDB 數據處理器
+        sheetsHandler = new SheetsDataHandler();
+        sheetsHandler.SHEETDB_API_URL = sheetDBApiUrl;
+        console.log('SheetDB 數據處理器初始化完成');
+        
+        // 如果已有使用者，直接載入數據
+        if (currentUser) {
+            console.log('正在登入現有用戶:', currentUser);
+            const loginResult = await sheetsHandler.loginUser(currentUser);
+            if (loginResult.success) {
+                dataHandler = sheetsHandler;
+                initializeApp();
             } else {
-                // 沒有使用者，顯示登入模態框
+                console.log('登入失敗:', loginResult.message);
+                // 登入失敗，顯示登入模態框
                 showLoginModal();
             }
-        } catch (error) {
-            console.error('Google Sheets API 初始化失敗:', error);
-            console.log('將使用本地存儲');
-            initializeWithLocalStorage();
+        } else {
+            // 沒有使用者，顯示登入模態框
+            showLoginModal();
         }
     } catch (error) {
         console.error('初始化 SheetsDataHandler 失敗:', error);
+        showError(`初始化數據處理器失敗: ${error.message}`);
         initializeWithLocalStorage();
     }
 }
 
-// 使用本地存儲初始化
+// 使用本地存儲初始化（僅作為備用）
 function initializeWithLocalStorage() {
-    useGoogleSheets = false;
     dataHandler = new LimitedTournamentDataHandler();
     
     if (currentUser) {
@@ -70,49 +77,6 @@ function initializeWithLocalStorage() {
     } else {
         showLoginModal();
     }
-}
-
-// 顯示 Google 登入提示
-function showSignInPrompt() {
-    const modalHtml = `
-        <div class="modal fade" id="signInModal" data-bs-backdrop="static" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">需要登入 Google 帳戶</h5>
-                    </div>
-                    <div class="modal-body">
-                        <p>為了使用 Google 試算表存儲您的數據，我們需要您授權此應用程序。</p>
-                        <p>請點擊下方按鈕登入您的 Google 帳戶。</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" id="googleSignInBtn">登入 Google</button>
-                        <button type="button" class="btn btn-secondary" id="useLocalStorageBtn">使用本地存儲</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    const signInModal = new bootstrap.Modal(document.getElementById('signInModal'));
-    
-    document.getElementById('googleSignInBtn').addEventListener('click', function() {
-        sheetsHandler.signIn().then(() => {
-            signInModal.hide();
-            showLoginModal();
-        }).catch(error => {
-            console.error('Google 登入失敗:', error);
-            alert('Google 帳戶登入失敗，請重試。');
-        });
-    });
-    
-    document.getElementById('useLocalStorageBtn').addEventListener('click', function() {
-        signInModal.hide();
-        initializeWithLocalStorage();
-    });
-    
-    signInModal.show();
 }
 
 // 顯示錯誤訊息
@@ -172,14 +136,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // 隱藏主頁內容，直到登入成功
     document.getElementById('mainContent').classList.add('d-none');
     
-    // 初始化應用
-    initialize();
+    // 添加事件監聽器到快速填寫按鈕
+    document.getElementById('quickFillBtn').addEventListener('click', function() {
+        uiController.fillStandardTournament();
+    });
     
-    // 登出按鈕處理
+    // 添加事件監聽器到退出按鈕
     document.getElementById('logoutBtn').addEventListener('click', function() {
         localStorage.removeItem('currentUser');
         location.reload();
     });
+    
+    // 添加事件監聽器到保存 SheetDB 設置按鈕
+    document.getElementById('saveSheetdbSettings').addEventListener('click', saveSheetDBSettings);
+    
+    // 添加事件監聽器到測試 API 按鈕
+    document.getElementById('testApiBtn').addEventListener('click', testSheetDBApi);
+    
+
+    // 如果有 SheetDB 設置，填充設置表單
+    if (sheetDBApiUrl) {
+        document.getElementById('sheetdbApiUrl').value = sheetDBApiUrl;
+    }
+    document.getElementById('useSheetdbSwitch').checked = true; // 固定為啟用
+    document.getElementById('useSheetdbSwitch').disabled = true; // 禁用切換
+    
+    // 加載 API URL 設置 (初始化時應用)
+    initialize();
 });
 
 // 登入相關函數
@@ -225,18 +208,13 @@ function showLoginModal() {
         
         if (selectedPlayer) {
             // 登入現有用戶
-            if (useGoogleSheets) {
-                result = await sheetsHandler.loginUser(selectedPlayer);
-                if (result.success) {
-                    login(selectedPlayer);
-                    dataHandler = sheetsHandler;
-                } else {
-                    alert(result.message);
-                    return;
-                }
-            } else {
+            result = await sheetsHandler.loginUser(selectedPlayer);
+            if (result.success) {
                 login(selectedPlayer);
-                dataHandler.loadUserData(selectedPlayer);
+                dataHandler = sheetsHandler;
+            } else {
+                alert(result.message);
+                return;
             }
         } else if (newPlayer) {
             // 創建新用戶
@@ -245,18 +223,13 @@ function showLoginModal() {
                 return;
             }
             
-            if (useGoogleSheets) {
-                result = await sheetsHandler.createUser(newPlayer);
-                if (result.success) {
-                    login(newPlayer);
-                    dataHandler = sheetsHandler;
-                } else {
-                    alert(result.message);
-                    return;
-                }
-            } else {
+            result = await sheetsHandler.createUser(newPlayer);
+            if (result.success) {
                 login(newPlayer);
-                dataHandler.loadUserData(newPlayer);
+                dataHandler = sheetsHandler;
+            } else {
+                alert(result.message);
+                return;
             }
         } else {
             alert('請選擇現有玩家或輸入新玩家名稱');
@@ -275,22 +248,22 @@ async function loadPlayerList() {
         const playerSelect = document.getElementById('playerSelect');
         playerSelect.innerHTML = '<option value="">請選擇...</option>';
         
-        if (useGoogleSheets) {
-            // 從 Google Sheets 獲取用戶列表
-            const response = await gapi.client.sheets.spreadsheets.values.get({
-                spreadsheetId: sheetsHandler.SPREADSHEET_ID,
-                range: sheetsHandler.USERS_RANGE
-            });
-            
-            const users = response.result.values || [];
-            
-            // 添加用戶到下拉選單
-            users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user[0];
-                option.textContent = user[0];
-                playerSelect.appendChild(option);
-            });
+        if (sheetDBApiUrl) {
+            // 從 SheetDB 獲取用戶列表
+            const response = await fetch(`${sheetDBApiUrl}/search?sheet=Users`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                // 添加用戶到下拉選單
+                data.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = user.username;
+                    playerSelect.appendChild(option);
+                });
+            } else {
+                console.error('從 SheetDB 載入用戶列表失敗');
+            }
         } else {
             // 從本地存儲獲取用戶列表
             const storageKeys = Object.keys(localStorage);
@@ -315,84 +288,250 @@ function login(playerName) {
     localStorage.setItem('currentUser', playerName);
 }
 
-function calculateProfit() {
-    const buyin = Number(document.getElementById('tournament-buyin').value) || 0;
-    const fee = Number(document.getElementById('tournament-fee').value) || 0;
-    const prize = Number(document.getElementById('tournament-prize').value) || 0;
-
-    const profit = prize - (buyin + fee);
-    document.getElementById('tournament-profit').value = profit;
-}
-
-// 處理表單提交
-document.getElementById('limitedTournamentForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    
-    if (!isInitialized) return;
-
-    const tournamentData = {
-        date: document.getElementById('tournament-date').value,
-        venue: document.getElementById('tournament-venue').value,
-        hours: Number(document.getElementById('tournament-hours').value),
-        buyin: Number(document.getElementById('tournament-buyin').value),
-        fee: Number(document.getElementById('tournament-fee').value),
-        prize: Number(document.getElementById('tournament-prize').value),
-        startingChips: Number(document.getElementById('tournament-startingChips').value),
-        notes: document.getElementById('tournament-notes').value
-    };
-
-    dataHandler.addTournament(tournamentData);
-
-    // 保存當前日期和場地
-    const currentDate = document.getElementById('tournament-date').value;
-    const currentVenue = document.getElementById('tournament-venue').value;
-
-    // 重置表單
-    this.reset();
-
-    // 恢復日期和場地
-    document.getElementById('tournament-date').value = currentDate;
-    document.getElementById('tournament-venue').value = currentVenue;
-
-    // 更新UI和圖表
-    uiController.updateSummary();
-    uiController.updateHistoryTable();
-    chartManager.updateAllCharts();
-
-    // 重新綁定事件監聽器
-    document.getElementById('tournament-buyin').addEventListener('input', calculateProfit);
-    document.getElementById('tournament-fee').addEventListener('input', calculateProfit);
-    document.getElementById('tournament-prize').addEventListener('input', calculateProfit);
-});
-
 // 格式化貨幣
 function formatCurrency(amount) {
     return '$' + Number(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 }
 
-// 快速填寫標準賽
-document.getElementById('quickFillBtn').addEventListener('click', function () {
-    if (!isInitialized) return;
+/**
+ * 保存 SheetDB 設置
+ */
+function saveSheetDBSettings() {
+    const apiUrl = document.getElementById('sheetdbApiUrl').value.trim() || 'https://sheetdb.io/api/v1/vdz7p5djj0n9g';
     
-    const template = {
-        venue: '市政華人',
-        hours: 2,
-        buyin: 3000,
-        fee: 400,
-        startingChips: 20000
-    };
-
-    if (template) {
-        document.getElementById('tournament-venue').value = template.venue;
-        document.getElementById('tournament-hours').value = template.hours;
-        document.getElementById('tournament-buyin').value = template.buyin;
-        document.getElementById('tournament-fee').value = template.fee;
-        document.getElementById('tournament-startingChips').value = template.startingChips;
-
-        // 自動計算淨收益
-        calculateProfit();
-
-        // 設置焦點到獎金欄位
-        document.getElementById('tournament-prize').focus();
+    // 驗證 API URL
+    if (!apiUrl || !apiUrl.startsWith('https://sheetdb.io/api/v1/')) {
+        alert('請輸入有效的 SheetDB API URL');
+        return;
     }
-});
+    
+    // 保存設置
+    localStorage.setItem('sheetDBApiUrl', apiUrl);
+    
+    // 更新全局變量
+    sheetDBApiUrl = apiUrl;
+    
+    // 顯示成功訊息
+    alert('設置已保存！請重新載入頁面以應用更改。');
+    
+    // 關閉模態框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('sheetdbSetupModal'));
+    modal.hide();
+    
+    // 重新載入頁面
+    location.reload();
+}
+
+// 顯示 SheetDB 設置模態框
+function showSheetDBSetupModal() {
+    const modal = new bootstrap.Modal(document.getElementById('sheetdbSetupModal'));
+    modal.show();
+}
+
+/**
+ * 測試 SheetDB API 連接
+ */
+async function testSheetDBApi() {
+    const apiUrlInput = document.getElementById('sheetdbApiUrl');
+    const apiUrl = apiUrlInput.value.trim();
+    const apiTestResult = document.getElementById('apiTestResult');
+    const apiErrorAlert = document.getElementById('apiErrorAlert');
+    const apiErrorMessage = document.getElementById('apiErrorMessage');
+    
+    // 隱藏先前的結果
+    apiTestResult.style.display = 'none';
+    apiErrorAlert.style.display = 'none';
+    
+    // 驗證 URL 格式
+    if (!apiUrl || !apiUrl.startsWith('https://sheetdb.io/api/v1/')) {
+        apiErrorAlert.style.display = 'block';
+        apiErrorMessage.textContent = '請輸入有效的 SheetDB API URL (格式應為 https://sheetdb.io/api/v1/...)';
+        return;
+    }
+    
+    try {
+        // 測試基本連接
+        apiTestResult.className = 'alert alert-info';
+        apiTestResult.innerHTML = '正在測試連接...';
+        apiTestResult.style.display = 'block';
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+            throw new Error(`API 響應錯誤: ${response.status} - ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('API 測試結果:', data);
+        
+        // 測試 Users 工作表
+        apiTestResult.innerHTML = '基本連接成功！正在檢查工作表...';
+        
+        // 獲取工作表列表
+        const sheetsResponse = await fetch(`${apiUrl}/sheets`);
+        
+        if (!sheetsResponse.ok) {
+            apiTestResult.className = 'alert alert-warning';
+            apiTestResult.innerHTML = '基本連接成功，但無法獲取工作表列表。這可能是 SheetDB 版本限制，但基本功能應該可以使用。';
+            return;
+        }
+        
+        const sheetsData = await sheetsResponse.json();
+        console.log('工作表列表:', sheetsData);
+        
+        // 檢查 Users 工作表是否存在
+        if (!sheetsData.sheets || !sheetsData.sheets.includes('Users')) {
+            // 嘗試創建 Users 工作表
+            apiTestResult.innerHTML = '未找到 Users 工作表，嘗試創建...';
+            
+            const createResponse = await fetch(`${apiUrl}/sheet`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: 'Users',
+                    first_row: ["username"]
+                })
+            });
+            
+            if (!createResponse.ok) {
+                apiTestResult.className = 'alert alert-warning';
+                apiTestResult.innerHTML = `連接成功，但無法創建 Users 工作表。您可能需要手動在 Google Sheets 中創建一個名為 "Users" 的工作表，並在第一行添加 "username" 列標題。`;
+                return;
+            }
+            
+            apiTestResult.innerHTML += '<br>成功創建 Users 工作表！';
+        }
+        
+        // 全部測試通過
+        apiTestResult.className = 'alert alert-success';
+        apiTestResult.innerHTML = '<strong>連接成功！</strong> SheetDB API 已可正常使用。';
+        
+    } catch (error) {
+        console.error('API 測試錯誤:', error);
+        apiTestResult.className = 'alert alert-danger';
+        apiTestResult.innerHTML = `<strong>連接失敗:</strong> ${error.message}`;
+    }
+}
+
+/**
+ * 顯示 Users 表格的所有列標題
+ */
+async function showUsersTableHeaders() {
+    if (!sheetsHandler) {
+        alert('未初始化 SheetDB 連接');
+        return;
+    }
+    
+    try {
+        // 顯示加載中提示
+        const loadingToast = showToast('正在獲取 Users 表格標題...', 'info');
+        
+        // 獲取標題
+        const headers = await sheetsHandler.getUsersTableHeaders();
+        
+        // 隱藏加載提示
+        loadingToast.hide();
+        
+        if (headers.length === 0) {
+            showToast('無法獲取 Users 表格標題', 'danger');
+            return;
+        }
+        
+        // 構建標題顯示 HTML
+        let headersHtml = `
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>列標題名稱</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        headers.forEach((header, index) => {
+            headersHtml += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${header}</td>
+                </tr>
+            `;
+        });
+        
+        headersHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // 顯示標題在模態框中
+        const modalHtml = `
+            <div class="modal fade" id="headersModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Users 表格列標題</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            ${headersHtml}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">關閉</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 添加模態框
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const headersModal = new bootstrap.Modal(document.getElementById('headersModal'));
+        headersModal.show();
+        
+        // 移除模態框
+        document.getElementById('headersModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    } catch (error) {
+        console.error('顯示 Users 表格標題失敗:', error);
+        showToast('顯示 Users 表格標題失敗: ' + error.message, 'danger');
+    }
+}
+
+/**
+ * 顯示 Toast 提示
+ * @param {string} message 提示訊息
+ * @param {string} type 提示類型 (success, info, warning, danger)
+ * @returns {Object} Toast 實例
+ */
+function showToast(message, type = 'info') {
+    const id = 'toast-' + Date.now();
+    const toastHtml = `
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div id="${id}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-${type} text-white">
+                    <strong class="me-auto">德州撲克限時錦標賽追蹤器</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = document.getElementById(id);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        this.parentElement.remove();
+    });
+    
+    return toast;
+}

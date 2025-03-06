@@ -4,8 +4,7 @@ class ChartManager {
         this.charts = {
             profitTrend: null,
             venuePerformance: null,
-            hourlyProfit: null,
-            chipsToPrize: null
+            hourlyProfit: null
         };
     }
     
@@ -26,12 +25,6 @@ class ChartManager {
             this.initHourlyProfitChart();
         } catch (error) {
             console.error('初始化每小時收益圖表失敗:', error);
-        }
-        
-        try {
-            this.initChipsToPrizeChart();
-        } catch (error) {
-            console.error('初始化籌碼與獎金關係圖表失敗:', error);
         }
         
         // 監聽數據變化，自動更新圖表
@@ -134,38 +127,6 @@ class ChartManager {
         });
     }
     
-    // 初始化籌碼-獎金關係圖表
-    initChipsToPrizeChart() {
-        const ctx = document.getElementById('chipsToPrizeChart').getContext('2d');
-        this.charts.chipsToPrize = new Chart(ctx, {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: '籌碼與獎金關係',
-                    data: [],
-                    backgroundColor: 'rgba(75, 192, 192, 0.5)'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: '起始籌碼'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: '獎金 ($)'
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
     // 更新收益趨勢圖表
     updateProfitTrendChart() {
         if (!this.charts.profitTrend) {
@@ -213,30 +174,10 @@ class ChartManager {
         this.charts.hourlyProfit.update();
     }
     
-    // 更新籌碼-獎金關係圖表
-    updateChipsToPrizeChart() {
-        if (!this.charts.chipsToPrize) {
-            console.warn('chipsToPrize 圖表未初始化，跳過更新');
-            return;
-        }
-        
-        const tournaments = this.dataHandler.getAllTournaments();
-        const chipsToPrizeData = tournaments
-            .filter(t => t.startingChips > 0) // 只顯示有籌碼數據的記錄
-            .map(t => ({
-                x: t.startingChips,
-                y: t.prize
-            }));
-        
-        this.charts.chipsToPrize.data.datasets[0].data = chipsToPrizeData;
-        this.charts.chipsToPrize.update();
-    }
-    
     // 更新所有圖表
     updateAllCharts() {
         this.updateProfitTrendChart();
         this.updateVenuePerformanceChart();
         this.updateHourlyProfitChart();
-        this.updateChipsToPrizeChart();
     }
 } 

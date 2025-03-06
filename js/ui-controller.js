@@ -39,7 +39,6 @@ class UIController {
         document.getElementById('tournament-buyin').value = tournament.buyin;
         document.getElementById('tournament-fee').value = tournament.fee;
         document.getElementById('tournament-prize').value = tournament.prize;
-        document.getElementById('tournament-startingChips').value = tournament.startingChips || '';
         document.getElementById('tournament-notes').value = tournament.notes || '';
         document.getElementById('tournament-profit').value = tournament.netProfit;
 
@@ -65,7 +64,6 @@ class UIController {
             buyin: Number(document.getElementById('tournament-buyin').value),
             fee: Number(document.getElementById('tournament-fee').value),
             prize: Number(document.getElementById('tournament-prize').value),
-            startingChips: Number(document.getElementById('tournament-startingChips').value),
             notes: document.getElementById('tournament-notes').value
         };
 

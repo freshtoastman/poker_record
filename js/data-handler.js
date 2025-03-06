@@ -27,7 +27,7 @@ class LimitedTournamentDataHandler {
         return csv.split('\n')
             .filter(line => line.trim().length > 0)
             .map(line => {
-                const [id, date, venue, hours, buyin, fee, prize, netProfit, startingChips, finalChips, notes] = line.split(',');
+                const [id, date, venue, hours, buyin, fee, prize, netProfit, notes] = line.split(',');
                 return {
                     id: Number(id),
                     date,
@@ -37,8 +37,6 @@ class LimitedTournamentDataHandler {
                     fee: Number(fee),
                     prize: Number(prize),
                     netProfit: Number(netProfit),
-                    startingChips: Number(startingChips) || 0,
-                    finalChips: Number(finalChips) || 0,
                     notes: notes || ''
                 };
             });
@@ -46,9 +44,9 @@ class LimitedTournamentDataHandler {
 
     // 轉換為 CSV
     toCSV() {
-        const header = 'id,date,venue,hours,buyin,fee,prize,netProfit,startingChips,finalChips,notes\n';
+        const header = 'id,date,venue,hours,buyin,fee,prize,netProfit,notes\n';
         const rows = this.tournaments.map(t => 
-            `${t.id},${t.date},${t.venue},${t.hours},${t.buyin},${t.fee},${t.prize},${t.netProfit},${t.startingChips || 0},${t.finalChips || 0},${t.notes}`
+            `${t.id},${t.date},${t.venue},${t.hours},${t.buyin},${t.fee},${t.prize},${t.netProfit},${t.notes}`
         ).join('\n');
         return header + rows;
     }
@@ -86,7 +84,6 @@ class LimitedTournamentDataHandler {
             fee: Number(tournament.fee),
             prize: Number(tournament.prize),
             netProfit: netProfit,
-            startingChips: Number(tournament.startingChips) || 0,
             notes: tournament.notes
         };
         
@@ -107,8 +104,7 @@ class LimitedTournamentDataHandler {
             this.tournaments[index] = {
                 ...this.tournaments[index],
                 ...updatedData,
-                netProfit: netProfit,
-                startingChips: Number(updatedData.startingChips) || 0
+                netProfit: netProfit
             };
             
             this.notifyDataChange();
