@@ -182,4 +182,36 @@ body {
         max-height: 400px;
         overflow-y: auto;
     }
+}
+
+/* 緊湊表格樣式 - 特別是針對移動設備 */
+.compact-table td,
+.compact-table th {
+    padding: 0.25rem !important;
+    vertical-align: middle;
+}
+
+.compact-table .small {
+    font-size: 0.875rem;
+}
+
+.compact-table .btn-group-sm .btn {
+    line-height: 1.2;
+}
+
+/* 為移動設備優化表格 */
+@media (max-width: 767.98px) {
+    .compact-table {
+        font-size: 0.875rem;
+    }
+    
+    .compact-table td,
+    .compact-table th {
+        padding: 0.2rem !important;
+    }
+    
+    .compact-table .btn-sm {
+        padding: 0.1rem 0.25rem;
+        font-size: 0.75rem;
+    }
 } 
